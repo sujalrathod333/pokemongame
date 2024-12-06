@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pokemon Battle</title>
+    <style>
+        * { margin: 0; padding: 0; }
+        body { overflow: hidden; }
+        .gameContainer {
+            width: 100%;
+            height: 100vh;
+            position: relative;
+            background: url("bg.png") no-repeat center center/cover;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+        .pokemon {
+            width: 250px;
+            height: 250px;
+            position: absolute;
+            bottom: 150px;
+            background-size: cover;
+        }
+        .player { left: 50px; }
+        .opponent { right: 50px; }
+        #attackButton {
+            position: absolute;
+            bottom: 80px;
+            left: 50%;
+            transform: translateX(-50%);
+            padding: 15px 30px;
+            font-size: 30px;
+        }
+        #pokemonSelect, #opponentSelect {
+            position: absolute;
+            top: 20px;
+            padding: 15px;
+            font-size: 25px;
+        }
+        #pokemonSelect { left: 20px; }
+        #opponentSelect { right: 20px; }
+        #playerMoveSelect, #opponentMoveSelect {
+            position: absolute;
+            top: 200px;
+            padding: 20px;
+            font-size: 25px;
+            width: 400px;
+            border-radius: 10px;
+            text-align: center;
+        }
+        #playerMoveSelect { left: 20px; }
+        #opponentMoveSelect { right: 20px; }
+        #scoreCont {
+            position: absolute;
+            top: 90px;
+            left: 20px;
+            font-size: 30px;
+            color: #54212f;
+            background-color: azure;
+            padding: 15px;
+            border-radius: 5px;
+        }
+        #message {
+            position: absolute;
+            bottom: 160px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: white;
+            padding: 20px;
+            border: 1px solid #54212f;
+            width: 500px;
+            text-align: center;
+            font-size: 20px;
+            font-weight: bold;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+    </style>
+</head>
+<body>
+    <div class="gameContainer">
+        <div class="pokemon player" id="playerPokemon"></div>
+        <div class="pokemon opponent" id="opponentPokemon"></div>
+        <button id="attackButton">Attack</button>
+        <select id="pokemonSelect"></select>
+        <select id="opponentSelect"></select>
+        <select id="playerMoveSelect"></select>
+        <select id="opponentMoveSelect"></select>
+        <div id="scoreCont">Player HP: 100 | Opponent HP: 100</div>
+        <div id="message"></div>
+    </div>
+
+    <script>
+        let playerHP = 100;
+        let opponentHP = 100;
+        let gameIsOver = false;
+        let playerPokemonName = 'Charizard';
+        let opponentPokemonName = 'Blastoise';
+
+        async function loadAllPokemon() {
+            const response = await fetch('https://pokeapi.co/api/v2/pokemon?limit=100');
+            const data = await response.json();
+            const pokemonSelect = document.getElementById('pokemonSelect');
+            const opponentSelect = document.getElementById('opponentSelect');
+
+            data.results.forEach(pokemon => {
+                const option = document.createElement('option');
+                option.value = pokemon.name;
+                option.textContent = pokemon.name.charAt(0).toUpperCase() + pokemon.name.slice(1);
+                pokemonSelect.appendChild(option);
+                opponentSelect.appendChild(option.cloneNode(true));
+            });
+
+            pokemonSelect.value = 'charizard';
+            opponentSelect.value = 'blastoise';
+        }
+
+        async function loadPokemonDetails(pokemon, isPlayer) {
+            const response = await fetch(`https://pokeapi.co/api/v2/pokemon/${pokemon}`);
+            const data = await response.json();
+            const target = isPlayer ? 'playerPokemon' : 'opponentPokemon';
+
+            document.getElementById(target).style.backgroundImage = `url(${data.sprites.front_default})`;
+
+            const moveSelect = isPlayer ? document.getElementById('playerMoveSelect') : document.getElementById('opponentMoveSelect');
+            moveSelect.innerHTML = '';
+            data.moves.forEach(move => {
+                const option = document.createElement('option');
+                option.value = move.move.name;
+                option.textContent = move.move.name.replace('-', ' ');
+                moveSelect.appendChild(option);
+            });
+
+            if (isPlayer) playerPokemonName = pokemon.charAt(0).toUpperCase() + pokemon.slice(1);
+            else opponentPokemonName = pokemon.charAt(0).toUpperCase() + pokemon.slice(1);
+        }
+
+        function performAttack(attacker, defender, move) {
+            const damage = Math.floor(Math.random() * 20) + 10;
+            if (attacker === 'player') opponentHP -= damage;
+            else playerHP -= damage;
+
+            document.getElementById('scoreCont').innerText = `Player HP: ${playerHP} | Opponent HP: ${opponentHP}`;
+            return `${attacker === 'player' ? playerPokemonName : opponentPokemonName} used <b>${move}</b> and dealt <b>${damage}</b> damage!<br>`;
+        }
+
+        document.getElementById('attackButton').onclick = function () {
+            if (gameIsOver) return;
+
+            const playerMove = document.getElementById('playerMoveSelect').value;
+            const opponentMove = document.getElementById('opponentMoveSelect').value;
+
+            let attackMessage = performAttack('player', 'opponent', playerMove);
+            attackMessage += performAttack('opponent', 'player', opponentMove);
+
+            const messageBox = document.getElementById('message');
+            messageBox.innerHTML = attackMessage;
+
+            if (playerHP <= 0 || opponentHP <= 0) {
+                gameIsOver = true;
+                messageBox.innerHTML = `
+                    Game Over! ${
+                        playerHP <= 0
+                            ? `${opponentPokemonName} Wins!`
+                            : `${playerPokemonName} Wins!`
+                    }
+                `;
+            }
+        };
+
+        document.getElementById('pokemonSelect').onchange = function (e) {
+            loadPokemonDetails(e.target.value, true);
+        };
+
+        document.getElementById('opponentSelect').onchange = function (e) {
+            loadPokemonDetails(e.target.value, false);
+        };
+
+        loadAllPokemon();
+        loadPokemonDetails('charizard', true);
+        loadPokemonDetails('blastoise', false);
+    </script>
+</body>
+</html>
